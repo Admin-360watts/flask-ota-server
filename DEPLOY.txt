@@ -1,0 +1,117 @@
+# Deploy OTA Server: GitHub + Vercel (Free)
+
+## Step 1: Push to GitHub
+
+```bash
+cd c:\projects\360watts\ota-server
+
+# Initialize git
+git init
+git add .
+git commit -m "Initial OTA server"
+
+# Create repo on GitHub, then:
+git remote add origin https://github.com/YOUR_USERNAME/ota-server.git
+git push -u origin main
+```
+
+## Step 2: Connect Vercel to GitHub
+
+1. Go to [vercel.com](https://vercel.com)
+2. Sign up/Login with GitHub
+3. Click **"New Project"**
+4. Select your `ota-server` repository
+5. Click **"Deploy"**
+
+✅ Done! Vercel will auto-deploy on every push to GitHub.
+
+## Step 3: Get Your OTA Server URL
+
+After deployment, Vercel gives you a URL like:
+```
+https://ota-server-xxxxx.vercel.app
+```
+
+## Step 4: Update STM32 Code
+
+In your STM32 project, update the server URL:
+
+```c
+// In your config/defines
+#define HTTPS_URL "https://ota-server-xxxxx.vercel.app"
+#define OTA_REQUEST_ENDPOINT "api/ota"
+#define OTA_ACK_ENDPOINT "api/ota/ack"
+```
+
+## Step 5: Upload Firmware to GitHub
+
+```bash
+# Add your compiled firmware
+cp path/to/your/firmware.bin firmware/firmware_v2.bin
+
+git add firmware/firmware_v2.bin
+git commit -m "Add firmware v2.0.0"
+git push
+```
+
+Vercel will auto-deploy with the new firmware!
+
+## API Usage from STM32
+
+Your existing code in `function_ota.c` already works:
+
+```c
+// OTA check request
+POST https://ota-server-xxxxx.vercel.app/api/ota/devices/DEVICE_ID/check
+Body: {"device_id": "...", "firmware_version": "...", "config_version": "..."}
+
+// Response:
+{
+  "status": 1,
+  "version": "0x00020000",
+  "url": "https://ota-server-xxxxx.vercel.app/api/firmware/firmware_v2.bin",
+  "size": 524288,
+  "id": "ota_update_001"
+}
+
+// Download firmware (Cavli will use Range requests)
+GET https://ota-server-xxxxx.vercel.app/api/firmware/firmware_v2.bin
+Header: Range: bytes=0-1023  (for chunk download)
+```
+
+## Testing
+
+```bash
+# Test after deployment
+curl https://ota-server-xxxxx.vercel.app/api/health
+
+# Test OTA check
+curl -X POST https://ota-server-xxxxx.vercel.app/api/ota/devices/TEST001/check \
+  -H "Content-Type: application/json" \
+  -d '{"device_id":"TEST001","firmware_version":"0x00010000","config_version":"v1"}'
+```
+
+## Important Notes
+
+- **Free Tier Limits:** 100GB bandwidth/month, 100 serverless function executions/day
+- **Firmware Size:** Keep under 896KB (STM32 slot limit)
+- **Auto-Deploy:** Every git push triggers deployment
+- **HTTPS:** All endpoints are automatically HTTPS (secure)
+
+## File Structure in GitHub
+
+```
+ota-server/
+├── api/
+│   └── ota.py              # Flask API
+├── firmware/
+│   ├── .keep
+│   └── firmware_v2.bin     # Your compiled firmware (add via git)
+├── vercel.json             # Vercel config
+├── requirements.txt        # Dependencies
+├── .gitignore             # Ignore cache files
+├── create_test_firmware.py
+└── test_local.py
+```
+
+That's it! Push to GitHub → Vercel auto-deploys → STM32 downloads OTA.

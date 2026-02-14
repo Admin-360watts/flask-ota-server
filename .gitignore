@@ -8,5 +8,7 @@ venv/
 .venv
 .vercel
 .env
-firmware/*.bin
-!firmware/.keep
+
+# Keep firmware files in git for Vercel deployment
+# firmware/*.bin
+# !firmware/.keep

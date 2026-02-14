@@ -16,10 +16,15 @@ FIRMWARE_INFO = {
 def ota_check(device_id):
     """
     OTA check endpoint - returns firmware update info if available
-    Expected request body: {"device_id": "...", "firmware_version": "...", "config_version": "..."}
+    Expected request body: {"device_id": "...", "firmware_version": "...", "config_version": "...", "secret": "..."}
     """
     try:
         data = request.get_json() or {}
+        
+        # Optional: Validate device credentials (secret token)
+        # device_secret = data.get('secret', '')
+        # if not device_secret:
+        #     return jsonify({"error": "Unauthorized", "status": 0}), 401
         
         current_version = data.get('firmware_version', '0x00010000')
         
