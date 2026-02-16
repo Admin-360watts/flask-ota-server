@@ -5,11 +5,17 @@ import json
 import logging
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+@app.route('/', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    logger.info("Health check request received")
+    return jsonify({"status": "ok", "service": "OTA Server", "version": "1.0.0"}), 200
 
 # Firmware information
 FIRMWARE_INFO = {
@@ -20,6 +26,7 @@ FIRMWARE_INFO = {
 }
 
 @app.route('/api/ota/devices/<device_id>/check', methods=['POST', 'GET', 'OPTIONS'])
+@app.route('/ota/devices/<device_id>/check', methods=['POST', 'GET', 'OPTIONS'])
 def ota_check(device_id):
     """
     OTA check endpoint - returns firmware update info if available
@@ -91,6 +98,7 @@ def ota_check(device_id):
 
 
 @app.route('/api/firmware/<filename>', methods=['GET', 'OPTIONS'])
+@app.route('/firmware/<filename>', methods=['GET', 'OPTIONS'])
 def download_firmware(filename):
     """
     Firmware download endpoint - serves the firmware binary file
@@ -155,6 +163,7 @@ def download_firmware(filename):
 
 
 @app.route('/api/ota/devices/<device_id>/ack', methods=['POST', 'OPTIONS'])
+@app.route('/ota/devices/<device_id>/ack', methods=['POST', 'OPTIONS'])
 def ota_ack(device_id):
     """
     OTA acknowledgment endpoint - receives status updates from device
@@ -180,6 +189,7 @@ def ota_ack(device_id):
 
 
 @app.route('/api/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
     return jsonify({
