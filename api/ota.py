@@ -1,34 +1,44 @@
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, make_response
 from flask_cors import CORS
 import os
 import json
 import logging
+import sys
 
 app = Flask(__name__)
+
+# Enhanced CORS configuration
 CORS(app, 
      resources={r"/*": {"origins": "*"}},
-     allow_headers=["Content-Type", "Authorization", "Content-Length"],
-     methods=["GET", "POST", "OPTIONS"],
-     expose_headers=["Content-Range", "Accept-Ranges"],
-     supports_credentials=False
+     allow_headers=["*"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     expose_headers=["*"],
+     supports_credentials=False,
+     max_age=3600
 )
 
+# Ensure responses have proper headers
+@app.after_request
+def after_request(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Content-Length'
+    response.headers['Connection'] = 'close'
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(message)s',
+    stream=sys.stdout
+)
 logger = logging.getLogger(__name__)
 
-# Log all incoming requests
+# Log all incoming requests (minimal)
 @app.before_request
 def log_request_info():
-    logger.info('=' * 60)
-    logger.info(f'REQUEST: {request.method} {request.url}')
-    logger.info(f'PATH: {request.path}')
-    logger.info(f'HEADERS: {dict(request.headers)}')
-    logger.info(f'REMOTE_ADDR: {request.remote_addr}')
-    logger.info(f'USER_AGENT: {request.user_agent.string if request.user_agent else "None"}')
-    if request.data:
-        logger.info(f'BODY: {request.data[:500]}')
-    logger.info('=' * 60)
+    logger.info(f'{request.method} {request.path}')
 
 # Firmware information
 FIRMWARE_INFO = {
@@ -51,8 +61,7 @@ def ota_check(device_id):
         return '', 204
     
     try:
-        logger.debug(f"OTA Check Request - Device: {device_id}, Method: {request.method}")
-        logger.debug(f"Headers: {dict(request.headers)}")
+        logger.info(f"OTA Check - Device: {device_id}")
         
         # Support both JSON and form data
         if request.is_json:
@@ -60,19 +69,10 @@ def ota_check(device_id):
         else:
             data = request.form.to_dict() if request.form else {}
         
-        logger.debug(f"Request Data: {data}")
-        
-        # Optional: Validate device credentials (secret token)
-        # device_secret = data.get('secret', '')
-        # if not device_secret:
-        #     return jsonify({"error": "Unauthorized", "status": 0}), 401
-        
         current_version = data.get('firmware_version', '0x00010000')
         
         # Check if firmware file exists
         firmware_path = os.path.join(os.path.dirname(__file__), '..', 'firmware', FIRMWARE_INFO['filename'])
-        logger.debug(f"Firmware path: {firmware_path}")
-        logger.debug(f"Firmware exists: {os.path.exists(firmware_path)}")
         
         if os.path.exists(firmware_path):
             FIRMWARE_INFO['size'] = os.path.getsize(firmware_path)
@@ -124,12 +124,11 @@ def download_firmware(filename):
         return '', 204
     
     try:
-        logger.debug(f"Firmware download request: {filename}")
+        logger.info(f"Firmware request: {filename}")
         firmware_path = os.path.join(os.path.dirname(__file__), '..', 'firmware', filename)
-        logger.debug(f"Firmware path: {firmware_path}")
         
         if not os.path.exists(firmware_path):
-            logger.warning(f"Firmware file not found: {firmware_path}")
+            logger.warning(f"Firmware not found: {filename}")
             return jsonify({"error": "Firmware not found"}), 404
         
         # Support Range requests for chunk download
@@ -207,10 +206,11 @@ def ota_ack(device_id):
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
+    fw_file = os.path.join(os.path.dirname(__file__), '..', 'firmware', FIRMWARE_INFO['filename'])
     return jsonify({
         "status": "healthy",
         "service": "OTA Server",
-        "firmware_available": os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'firmware', FIRMWARE_INFO['filename']))
+        "firmware_available": os.path.exists(fw_file)
     }), 200
 
 
@@ -232,7 +232,14 @@ def root():
     }), 200
 
 
-@app.route('/debug/echo', methods=['POST', 'GET', 'OPTIONS'])
+# Super-minimal test endpoints for connectivity testing
+@app.route('/test', methods=['GET', 'POST'])
+@app.route('/api/test', methods=['GET', 'POST'])
+@app.route('/ping', methods=['GET', 'POST'])
+@app.route('/api/ping', methods=['GET', 'POST'])
+def test():
+    """Minimal test endpoint - responds immediately"""
+    return jsonify({"status": "ok", "test": "success"}), 200
 @app.route('/api/debug/echo', methods=['POST', 'GET', 'OPTIONS'])
 def debug_echo():
     """Debug endpoint - echoes back all request details"""

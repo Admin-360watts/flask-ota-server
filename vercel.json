@@ -5,28 +5,41 @@
       "src": "api/ota.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "15mb"
+        "maxLambdaSize": "50mb",
+        "runtime": "python3.11"
       }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/ota.py"
+      "dest": "api/ota.py",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
-      "src": "/(ota|firmware|health|debug)/(.*)",
-      "dest": "api/ota.py"
+      "src": "/(ota|firmware|health|test|ping|debug)/(.*)",
+      "dest": "api/ota.py",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    },
+    {
+      "src": "/(ota|firmware|health|test|ping|debug)",
+      "dest": "api/ota.py",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
       "src": "/(.*)",
-      "dest": "api/ota.py"
+      "dest": "api/ota.py",
+      "methods": ["GET", "POST", "OPTIONS"]
     }
   ],
   "functions": {
     "api/ota.py": {
       "memory": 1024,
-      "maxDuration": 10
+      "maxDuration": 30,
+      "runtime": "python3.11"
     }
-  }
+  },
+  "env": [
+    "DEBUG=true"
+  ]
 }
