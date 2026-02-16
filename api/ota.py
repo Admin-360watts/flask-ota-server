@@ -5,11 +5,30 @@ import json
 import logging
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app, 
+     resources={r"/*": {"origins": "*"}},
+     allow_headers=["Content-Type", "Authorization", "Content-Length"],
+     methods=["GET", "POST", "OPTIONS"],
+     expose_headers=["Content-Range", "Accept-Ranges"],
+     supports_credentials=False
+)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Log all incoming requests
+@app.before_request
+def log_request_info():
+    logger.info('=' * 60)
+    logger.info(f'REQUEST: {request.method} {request.url}')
+    logger.info(f'PATH: {request.path}')
+    logger.info(f'HEADERS: {dict(request.headers)}')
+    logger.info(f'REMOTE_ADDR: {request.remote_addr}')
+    logger.info(f'USER_AGENT: {request.user_agent.string if request.user_agent else "None"}')
+    if request.data:
+        logger.info(f'BODY: {request.data[:500]}')
+    logger.info('=' * 60)
 
 # Firmware information
 FIRMWARE_INFO = {
@@ -205,10 +224,53 @@ def root():
             "check_update": "/ota/devices/{device_id}/check (POST)",
             "download_firmware": "/firmware/{filename} (GET)",
             "acknowledge": "/ota/devices/{device_id}/ack (POST)",
-            "health": "/health (GET)"
+            "health": "/health (GET)",
+            "debug": "/debug/echo (POST) - Echo back request details"
         },
-        "note": "All endpoints also available with /api/ prefix"
+        "note": "All endpoints also available with /api/ prefix",
+        "timestamp": str(os.getenv('VERCEL_REGION', 'local'))
     }), 200
+
+
+@app.route('/debug/echo', methods=['POST', 'GET', 'OPTIONS'])
+@app.route('/api/debug/echo', methods=['POST', 'GET', 'OPTIONS'])
+def debug_echo():
+    """Debug endpoint - echoes back all request details"""
+    if request.method == 'OPTIONS':
+        return '', 204
+    
+    return jsonify({
+        "method": request.method,
+        "url": request.url,
+        "path": request.path,
+        "headers": dict(request.headers),
+        "args": dict(request.args),
+        "form": dict(request.form),
+        "json": request.get_json(silent=True),
+        "data": request.data.decode('utf-8', errors='ignore')[:500],
+        "remote_addr": request.remote_addr,
+        "user_agent": request.user_agent.string if request.user_agent else None
+    }), 200
+
+
+# Catch-all route to log unmatched requests
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+def catch_all(path):
+    """Catch-all route to log requests that don't match any endpoint"""
+    logger.warning(f'UNMATCHED ROUTE: {request.method} /{path}')
+    logger.warning(f'Full URL: {request.url}')
+    return jsonify({
+        "error": "Endpoint not found",
+        "path": f"/{path}",
+        "method": request.method,
+        "available_endpoints": [
+            "/ota/devices/{device_id}/check",
+            "/api/ota/devices/{device_id}/check",
+            "/firmware/{filename}",
+            "/health",
+            "/debug/echo"
+        ]
+    }), 404
 
 
 # For local testing

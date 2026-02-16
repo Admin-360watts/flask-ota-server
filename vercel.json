@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "api/ota.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb"
+      }
     }
   ],
   "routes": [
@@ -12,8 +15,18 @@
       "dest": "api/ota.py"
     },
     {
-      "src": "/(ota|firmware)/(.*)",
+      "src": "/(ota|firmware|health|debug)/(.*)",
+      "dest": "api/ota.py"
+    },
+    {
+      "src": "/(.*)",
       "dest": "api/ota.py"
     }
-  ]
+  ],
+  "functions": {
+    "api/ota.py": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }
