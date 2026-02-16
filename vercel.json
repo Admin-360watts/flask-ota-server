@@ -3,16 +3,16 @@
   "builds": [
     {
       "src": "api/ota.py",
-      "use": "@vercel/python@3.0.0",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "runtime": "python3.11"
-      }
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
+      "dest": "api/ota.py"
+    },
+    {
+      "src": "/(ota|firmware)/(.*)",
       "dest": "api/ota.py"
     }
   ]

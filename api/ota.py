@@ -5,17 +5,11 @@ import json
 import logging
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
+CORS(app)  # Enable CORS for all routes
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-@app.route('/', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    logger.info("Health check request received")
-    return jsonify({"status": "ok", "service": "OTA Server", "version": "1.0.0"}), 200
 
 # Firmware information
 FIRMWARE_INFO = {
@@ -25,6 +19,7 @@ FIRMWARE_INFO = {
     "id": "ota_update_001"
 }
 
+# Dual routes to support both /api/ prefix and without (for STM32 compatibility)
 @app.route('/api/ota/devices/<device_id>/check', methods=['POST', 'GET', 'OPTIONS'])
 @app.route('/ota/devices/<device_id>/check', methods=['POST', 'GET', 'OPTIONS'])
 def ota_check(device_id):
@@ -71,7 +66,8 @@ def ota_check(device_id):
             else:
                 base_url = request.host_url.rstrip('/')
             
-            firmware_url = f"{base_url}/api/firmware/{FIRMWARE_INFO['filename']}"
+            # Use /firmware/ path (without /api/) for STM32 compatibility
+            firmware_url = f"{base_url}/firmware/{FIRMWARE_INFO['filename']}"
             logger.info(f"Firmware update available: {firmware_url}")
             
             response = {
@@ -196,6 +192,22 @@ def health():
         "status": "healthy",
         "service": "OTA Server",
         "firmware_available": os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'firmware', FIRMWARE_INFO['filename']))
+    }), 200
+
+
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint - provides API documentation"""
+    return jsonify({
+        "service": "OTA Server",
+        "version": "1.0.0",
+        "endpoints": {
+            "check_update": "/ota/devices/{device_id}/check (POST)",
+            "download_firmware": "/firmware/{filename} (GET)",
+            "acknowledge": "/ota/devices/{device_id}/ack (POST)",
+            "health": "/health (GET)"
+        },
+        "note": "All endpoints also available with /api/ prefix"
     }), 200
 
 
